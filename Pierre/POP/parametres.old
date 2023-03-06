@@ -1,0 +1,162 @@
+// Fichier de parametres pour la production de pseudo-donnees
+// Lyon 08/12/01
+
+
+//********************* Modele structurel **********************
+
+// Modele de masse disque d'epaisseur nul exponentiel et bulbe spherique
+
+// Parametres de la distribution de masse projetee:
+
+// Densites de masse centrales (Masses solaires/kpc^3):
+
+// disque:
+
+rho0d=10;
+
+// bulbe:
+
+//rho0b=10;
+
+//M=5233.;
+
+
+// Rayons caracteristiques (kpc):
+
+// disque:
+
+lrhod=5.;
+
+// bulbe:
+
+lrhob=5.;
+
+
+
+//********************* Modele cinematique *********************
+
+// Disque: Courbe de rotation en V0*(1-exp(-r/rd))
+// Dispersions de vitesses exponentielles
+// Bulbe: Dispersion isotrope et constante
+
+
+//*********** Disque ****************
+
+// Courbe de rotation (km/s):
+
+// Maximum de la courbe de rotation
+
+V0=220.;
+
+// Rayon caracteristique:
+
+rd=5.;
+
+// Exposant alpha
+
+alpha=0.8;
+
+
+// Dispersion des vitesses:
+
+// Radiale:
+
+sigmavr0=30.;
+lsigmavr=5.;
+
+// Azimutale:
+
+sigmavtheta0=30.;
+lsigmavtheta=5.;
+
+// Verticale:
+
+sigmavz0=30.;
+lsigmavz=5.;
+
+
+//************ Bulbe de Plummer ***************
+
+//Dispersion des vitesses centrale:
+
+//sigmav0=200.;
+
+//M=2*6*lrhob*sigmav0^2/G;
+M=5233;
+
+
+
+
+//******************Constantes*******************
+
+//G=4.3e-6;
+
+G=6.67e-11;
+
+
+c=3.e5;
+
+
+
+
+
+
+
+//***************************** Parametres observationnels *************
+
+// Distance de la galaxie observee (kpc)
+
+Dobs=500.;
+
+// Inclinaison du disque en degres (0 <=> edge-on):
+
+iobs=45.;
+
+// Position de la fibre sur la galaxie en polaires:
+
+rfibre=10.;
+thetafibre=0.;
+
+// Taille de la fibre (arcsec^2)
+
+sfibre=5.;
+
+// Direction de la ligne de visee
+
+ulosz=sqrt(2)/2;
+ulostheta=sqrt(1-ulosz^2);
+ulosr=0;
+
+
+//**************************** Populations stellaires ****************
+
+// Fichiers contenant les spectres des populations stellaires du bulbe et du disque 
+// Rq: 1 spectre donne la lumiere emise par une masse solaire de population. 
+
+
+// Disque:
+
+//sdisque=;
+
+// Bulbe:
+
+//sbulbe=;
+
+
+//***************************** Sorties *****************************
+
+// Fichier contenant le spectre synthetique ideal:
+
+//idspec=;
+
+// Fichier contenant la LOSVD froide:
+
+//coldLOSVD=;
+
+
+
+ 
+
+
+
+

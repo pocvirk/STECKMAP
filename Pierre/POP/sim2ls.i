@@ -1,0 +1,498 @@
+// Tools for extracting stat results from big R-SNR sims
+// usual sequence: run a=gatres, selres(a), gplres,plR...
+
+require,"Pierre/POP/sfit.i"
+require,"Pierre/POP/plot2ls.i"
+
+func _mkar(mvec,LW,nv){
+  /* DOCUMENT
+     rearranges the messed up sim results into 1 array, rms(a1) above diag, rms(a2) under diag, diag=0 */
+
+  //nv=13;  //(12*13)/2=78;
+  m1vec=mvec(1,)*1000+mvec(2,);
+  m2vec=mvec(2,)*1000+mvec(1,);
+  tr1=sort(m1vec);
+  tr2=sort(m2vec);
+  //tr2=tr1;
+  ni=array(0.,nv,nv);
+  k=1;for(i=1;i<=nv;i++){for(j=i+1;j<=nv;j++){ni(i,j)=LW(2,tr1(k));k+=1;};}
+  k=1;for(i=1;i<=nv;i++){for(j=1;j<i;j++){ni(i,j)=LW(1,tr2(k));k+=1;};};
+  //k=1;for(j=1;j<=nv;j++){for(i=j+1;i<=nv;i++){ni(i,j)=LW(1,tr(k));k+=1;};}
+  
+  return ni;
+};
+
+func listm(a){
+  /* DOCUMENT
+     lists the members of an array
+     ?? guess it does the same as a(*) ??
+  */
+
+  local res;
+  res=a(1);
+  for(i=2;i<=numberof(a);i++){
+    grow,res,(is_void(dimsof(where(res==a(i))))?a(i):[]);
+  };
+  return res;
+};
+
+
+func _findminsep(mvec,avec,ind,nm,&res1){
+  /*DOCUMENT
+    Strasnge function of mine
+     wont explain
+  */
+
+  local res,res1;
+  
+  res=[];
+  res1=[];
+  mu=mvec*0.;
+  mu(2,ind)=1.;
+  av=_mkar(mvec,avec,nv);
+  bla=_mkar(mvec,mu,nv);
+  ha=bla*abs(av-transpose(av));
+  
+  // reste plus qu'a prendre le minimum >0 de la colonne quand la colonne est pas totalement nulle.
+  
+  for(i=1;i<=nm;i++){
+    grow,res,(!is_void(dimsof(where(ha(i,)>0.)))?where(ha(i,)>0.)(1)-i:[]);
+    grow,res1,(!is_void(dimsof(where(ha(i,)>0.)))?ha(i,where(ha(i,)>0.)(1)):[]);
+  };
+  return res; 
+};
+
+//if (is_void(b)) upload,"psimsb.yor";
+
+
+func gatres(dir,nab,b=,sav=,r=,nde=){
+  /* DOCUMENT
+     creates arrays containing all results in dir
+     nab number of age bins is needed as an input
+     dir must end with a "/" sinon c'est le bordel
+     r=1 => reset
+  */
+
+  extern _b,Mgr,Mres,Mki2,Mlw,er,ber,nin,avec,Mvec,mvec,ne,nRs,nsnr,nc,nmc,Rs,snrs;
+  
+  if(is_void(b)) b=bRbasis(nbins=nab,inte=100,wavel=[4000.,4200.],zr=1);
+  _b=b;
+
+  if(r==1) Mgr=Mres=Mki2=Mlw=er=ber=nin=avec=Mvec=mvec=ne=nRs=nsnr=nc=nmc=Rs=snrs=[];
+  if(is_void(sav)) sav=1;
+  
+  gr=[];
+  nbins=nab;
+  Rl=exec("find "+dir+"  | grep yor");
+  //lR=str2double( split2words(Rl,sep="=:/")(,6));
+  lR=str2int(split2words(split2words(Rl,sep="/")(where(strmatch(split2words(Rl,sep="/"),"R="))),sep="=")(,2));
+  Rs=listm(lR);
+  Rs=Rs(sort(Rs));
+  nRs=numberof(Rs);
+  upload,Rl(1),s=0;
+  nmc=numberof(gals);
+  
+  for(iR=1;iR<=nRs;iR++){
+    
+    
+    rR=Rs(iR); // read sims with R=rR
+    snl=exec("find "+dir+"R="+pr1(rR)+"/ | grep yor");
+    lsnrs=str2float( split2words(snl,sep="=:/")(,8));
+    snrs=listm(lsnrs);
+    snrs=snrs(sort(snrs));
+    nsnr=numberof(snrs);
+    
+    
+    for(isnr=1;isnr<=nsnr;isnr++){ 
+      li=where(lsnrs==snrs(isnr));
+      ll=snl(li);
+      nc=numberof(ll);
+      ne=nc;
+      //******************
+      
+      if (is_void(Mgr)) Mgr=array(0.1,nbins,nRs,nsnr,nc,nmc);
+      if (is_void(Mres)) Mres=array(0.1,2*nbins+nde,nRs,nsnr,nc,nmc);
+      if (is_void(Mki2)) Mki2=array(0.1,nRs,nsnr,nc,nmc);
+      if (is_void(Mlw)) Mlw=array(0.1,2,nRs,nsnr,nc,nmc);
+      if (is_void(er)) er=array(0.1,2,nRs,nsnr);
+      if (is_void(ber)) ber=array(0.1,nRs,nsnr);
+      if (is_void(nin)) nin=array(0,nRs,nsnr);
+      
+      
+      for(i=1;i<=ne;i++){
+        gals=[];
+        upload,ll(i),s=1;
+        vec=q(:nab)^2;
+        if(is_void(Mvec)) Mvec=array(0.,2*nab+1,ne);
+        if(is_void(mvec)) mvec=array(0.,2,ne);
+        Mvec(,i)=q;
+        mvec(,i)=findlmax(vec);
+        for(j=1;j<=nmc;j++){
+          write,gals(j).resfile(1);
+          upload,gals(j).resfile,s=1;
+          Mres(,iR,isnr,i,j)=q1(:2*nbins+nde);
+          Mres(:nab,iR,isnr,i,j)=q1(:nab)^2;
+          Mgr(,iR,isnr,i,j)=q1(:nab)^2;
+          Mlw(,iR,isnr,i,j)=findsub(q1(:nab)^2,b,a=1);
+          Mki2(iR,isnr,i,j)=_ki;
+          //ML(i,j)=findsub(q1(:nab)^2,b,a=1,n=1);
+          //grow,ki,_ki;
+          //write,i,j;
+        };
+      };
+    };
+    write,"done  "+dir+"R="+pr1(rR)+"/";
+  };
+  avec=b.ages(int(mvec));
+  sMlw=Mlw;
+  Mlw=log10(Mlw)+6;
+  avec=log10(avec)+6;
+
+  if(!is_void(sav)){
+    if(sav==1) sav=dir;
+    f=createb(sav+"gatres.yor");
+    save,f,Mgr,Mres,Mki2,Mlw,er,ber,nin,avec,Mvec,mvec,ne,nab,nRs,nsnr,nc,nmc,dir,Rs,snrs;
+    close,f;
+    write,"saved  "+sav+"gatres.yor";
+  };
+  
+  return sav+"gatres.yor";
+};
+
+
+
+func selres(file,nv,ss=,ss2=,pr=){
+  /* DOCUMENT
+     selects results according to the two selection criterions
+     Extremely lousy piece of code
+     gr may be wrong
+     pr=1 to print. CAREFUL WITH THAT
+     WHAT is nv ? seems to be nv=13 ?
+     Dont remember really what ss and ss2 are about
+     
+       */
+        
+        extern sep,sep3,gr,a,egr;
+     
+        if(is_void(ss)) ss=0.2;
+        if(is_void(ss2)) ss2=0.1;
+        if(is_void(pr)) pr=0;
+        
+        
+        
+        upload,file;
+
+        sep=Mlw(1,,,,)*0.;
+        sep1=sep*0.+1.e6;
+        sep2=Mlw;
+        sep3=array(1.e6,nRs,nsnr,nc);
+        st=1.e6; //when only one bump is detected.
+        for(iR=1;iR<=nRs;iR++){
+          for(isnr=1;isnr<=nsnr;isnr++){
+            //write,iR,isnr;
+            for(i=1;i<=nc;i++){
+              for(j=1;j<=nmc;j++){
+                bap=bumpweights((Mgr(,iR,isnr,i,j)));
+                so=sort(bap)(::-1);
+                bap=bap(so);
+                sep(iR,isnr,i,j)=numberof(bap)>1?abs(log10(bap(1)/bap(2))):st; // tests relative weights of 2 main bumps
+                // then check height of the saddle point 
+                if (numberof(bap)>=2) {
+                  boi=findlmax(Mgr(,iR,isnr,i,j))(so);
+                  boi=boi(sort(Mgr(boi,iR,isnr,i,j)))(::-1)(:2);
+                  boi=boi(sort(boi));
+                  sep1(iR,isnr,i,j)=min(Mgr(boi(1):boi(2),iR,isnr,i,j))/max(Mgr(boi,iR,isnr,i,j));
+                  // large value yields high saddle point
+                };
+              };
+              // Now check height of the MEDIAN saddle point
+              //write,i;
+              cq=median(Mgr(,iR,isnr,i,),2);
+              bap=bumpweights(cq);
+              so=sort(bap)(::-1);
+              bap=bap(so);
+              if (numberof(bap)>=2) {
+                boi=findlmax(cq)(so);
+                boi=boi(sort(cq(boi)))(::-1)(:2);
+                boi=boi(sort(boi));
+                sep3(iR,isnr,i)=min(cq(boi(1):boi(2)))/max(cq(boi));
+                // sep3 has the values of minimum saddle point between the maxima
+                //write,sep3(iR,isnr,i);
+              };
+            };
+          };
+        };
+
+        
+        gr=[];
+        egr=[];
+        if (is_void(ber)) ber=array(0.1,nRs,nsnr);
+        if (is_void(nin)) nin=array(0,nRs,nsnr);
+        
+        for(iR=1;iR<=nRs;iR++){
+          for(isnr=1;isnr<=nsnr;isnr++){
+            
+            ind=where((sep(iR,isnr,,avg)<=ss)&(sep3(iR,isnr,)<=ss2));
+            nin(iR,isnr)=numberof(ind);
+            
+            //nind=where(sep(,avg)>ss);
+            
+            //ind=indgen(78);
+            
+            nind=[];
+            ws,1;
+            pler,Mlw(1,iR,isnr,ind,),Mlw(2,iR,isnr,ind,),med=1;
+            //if(!is_void(dimsof(nind))) pler,LW(1,nind,),LW(2,nind,),med=1,color="green";
+            pl,avec(2,ind),avec(1,ind),marker=1,width=5,color="blue";
+            //    if (!is_void(dimsof(nind))) pler,ML(nind,),ta(int(mvec(1,nind))),color="red";
+            logxy,1,1;
+            plg,6.+span(2.,4.3,10),6.+span(2.,4.3,10),type=2;
+            
+            // print it
+            if (pr==1){
+              pltitle,"SNR="+pr1(int(snrs(isnr)))+"   R="+pr1(int(Rs(iR)));
+              range,1.8+6,4.4+6;
+              limits,6.+1.6,4.3+6.;
+              xytitles,"log(age)","log(age)";
+              //plt,"age (Myr)", 0.50,0.46, tosys=0;
+              //plt,"age (Myr)", 0.15,0.88, tosys=0;
+              hcp_file,"/home4/ocvirk/paper/inversion/figs/aze/R-snr-sims/R="+pr1(int(Rs(iR)))+"-snr="+pr1(int(snrs(isnr)))+".ps";hcp;hcp_finish;
+            };
+            
+            //pause,1;
+
+            // ************* AND NOW FOR MY NEXT TRICK ******************
+            a=_findminsep(mvec,avec,ind,nv,res1); //** MEASUREMENT OF THE AGE RESOLUTION 
+            grow,gr,median(res1);
+            grow,egr,res1(rms);
+            median(res1);
+            //er(1,iR,isnr)=(abs(Mlw(1,iR,isnr,ind,)-avec(2,ind)(,-:1:10))(*))(rms);
+            //er(2,iR,isnr)=(abs(Mlw(2,iR,isnr,ind,)-avec(1,ind)(,-:1:10))(*))(rms);
+            
+            er(1,iR,isnr)=median((abs(Mlw(1,iR,isnr,ind,)-avec(2,ind)(,-:1:nmc))(*)));
+            er(2,iR,isnr)=median((abs(Mlw(2,iR,isnr,ind,)-avec(1,ind)(,-:1:nmc))(*)));
+            
+            ber(iR,isnr)=er(avg,iR,isnr)/nin(iR,isnr);
+            
+            h1=(abs(Mlw(1,iR,isnr,ind,)-avec(2,ind)(,-:1:nmc)));
+            h2=(abs(Mlw(2,iR,isnr,ind,)-avec(1,ind)(,-:1:nmc)));
+            
+          };
+        };
+        
+        
+        gr=reform(gr,nsnr,nRs);
+        egr=reform(egr,nsnr,nRs);
+        ws,2;
+        if (dimsof(gr)(2)>1) plb,gr,snrs;
+        //        if (dimsof(gr)(2)==1) plh,gr(1,),snrs;
+        
+        return [];        
+        
+};
+
+
+
+
+
+func gplres(iR1,iR2,ss=,ss2=,pr=,l=){
+  /* DOCUMENT
+     plots results of the iR1 and iR2 resolution on the same figure, and print
+     call gatres and selres first to create the required arrays
+     l=1 -> adds a line between model and reconstruction for better visu
+     WILL WORK ONLY for noMC data right now, search nlin
+  */
+  
+  if(is_void(ss)) ss=0.2;
+  if(is_void(ss2)) ss2=0.1;
+  if(is_void(pr)) pr=0;
+  
+  
+  for(isnr=1;isnr<=nsnr;isnr++){
+    ind1=where((sep(iR1,isnr,,avg)<=ss)&(sep3(iR1,isnr,)<=ss2));
+    ind2=where((sep(iR2,isnr,,avg)<=ss)&(sep3(iR2,isnr,)<=ss2));
+    nind=[];
+    ws,isnr;
+    
+    nlin=numberof(avec(2,ind1));
+    for(ilin=1;ilin<=nlin;ilin++){
+      plg,[avec(2,ind1)(ilin),Mlw(1,iR1,isnr,ind1,)(ilin)],[avec(1,ind1)(ilin),Mlw(2,iR1,isnr,ind1,)(ilin)];
+    };
+    PL,avec(2,ind1),avec(1,ind1),marker=4,width=2,color="red",msize=.9;
+    mypler,Mlw(1,iR1,isnr,ind1,),Mlw(2,iR1,isnr,ind1,),med=1,msize=.4,ticks=0,color="black",width=2;
+    
+    
+    PL,avec(1,ind2),avec(2,ind2),marker=4,width=2,color="red",msize=.9;
+    mypler,Mlw(2,iR2,isnr,ind2,),Mlw(1,iR2,isnr,ind2,),med=1,msize=.4,ticks=0,color="black",width=2;
+    logxy,1,1;
+    plg,5.+span(2.,5.3,10),5.+span(2.,5.3,10),type=2;
+    range,7.6,10.4;
+    limits,7.6,10.4;
+    plt,"R="+pr1(Rs(iR1)),7.8,8.,tosys=1,orient=1;
+    plt,"R="+pr1(Rs(iR2)),7.9,7.7,tosys=1;
+    pltitle,"SNR="+pr1(2*int(snrs(isnr)));
+    xytitles,"log(age[yr])","log(age[yr])";
+    _fn=[];
+    if(pr==1) {//print it
+      fn=dir+"groupR1="+pr1(int(Rs(iR1)))+"-R2="+pr1(int(Rs(iR2)))+"-snr="+pr1(int(snrs(isnr)))+".ps";grow,_fn,fn;
+      hcp_file,fn;hcp;hcp_finish;
+      write,fn;
+    };
+    
+  };
+
+  return [];
+  
+};
+
+
+
+func plR(pr=){
+  /* DOCUMENT same comments as gplres
+   */
+
+  if(is_void(pr)) pr=0;
+
+  ws;
+for(i=1;i<=nRs;i++){
+  plg,gr(,i),snrs,type=i,width=3;plg,array(1.72-0.05*i,10),2.*span(40.,50.,10),type=i,width=3;plt,"R="+pr1(Rs(i)),110.,1.7-.05*i,tosys=1;
+  //plg,gr(i,),snrs,type=i,width=3;plg,array(1.72-0.05*i,10),2.*span(40.,50.,10),type=i,width=3;plt,"R="+pr1(Rs(i)),110.,1.7-.05*i,tosys=1;
+}
+
+logxy,1,0;
+range,0.7,1.82;
+limits,19.,250.;
+ xyleg,"SNR per Angstrom","Resolution in age [dex]",cs1=[0.35,0.37],cs2=[0.12,0.58];
+//pltitle,"age resolution [dex] vs snr per angstrom";
+if(pr==1) {hcp_file,dir+"resvssnr.ps";
+ hcp;hcp_finish;};
+ return []; 
+};
+
+func plaer(pr=){
+  /* DOCUMENT
+     plots error on age
+     see gplres
+  */
+
+  if (is_void(pr)) pr=0;
+  
+  ws,2;
+  for(i=1;i<=nRs;i++){
+    if(i!=10) plg,er(avg,i,),snrs,type=i,width=3;plg,0.005+array(.0815-0.004*i,10),2.*span(40.,50.,10),type=i,width=3;plt,"R="+pr1(Rs(i)),110.,0.005+.08-.004*i,tosys=1;}
+  logxy,1,0;
+  range,0.01,0.095;
+  limits,19.,250.;
+  xyleg,"SNR per Angstrom","age error [dex]",cs1=[0.35,0.37],cs2=[0.12,0.58];
+  //pltitle,"error [dex] vs snr per angstrom";
+  if(pr=1){hcp_file,dir+"ervssnr.ps";
+  hcp;hcp_finish;}; 
+};
+
+
+func checkz(ss=,ss2=){
+
+  /* DOCUMENT
+     computes the metallicities of the "good" solutions
+     requires ne and all the other varibales like the other routines
+     creates lots of arrays for plzer
+     careful, someteimes LWZ(1,,,,,) should be LWZ(2,,,,,) and vice versa
+  */
+  
+  extern lzer,rzer,cnu,LWZ,mZ,zer,lZ,lmZ;
+  
+  if(is_void(ss)) ss=0.2;
+  if(is_void(ss2)) ss2=0.1;
+  
+  mZ=mvec*0.;
+  LWZ=Mlw*0.;
+  for(i=1;i<=ne;i++){
+    cnu=array(1.,nab);
+    grow,cnu,q(41:);
+    mZ(1,i)=LWM(cnu,int(mvec(1,i)),int(mvec(1,i)));
+    mZ(2,i)=LWM(cnu,int(mvec(2,i)),int(mvec(2,i)));
+  };
+  //for(iR=1;iR<=nRs;iR++){
+  //  for(isnr=1;isnr<=nsnr;isnr++){
+  zer=er*0.;
+  
+  for(iR=1;iR<=nRs;iR++){
+    for(isnr=1;isnr<=nsnr;isnr++){
+      
+      ind=where((sep(iR,isnr,,avg)<=ss)&(sep3(iR,isnr,)<=ss2));
+      nin(iR,isnr)=numberof(ind);
+      
+      for(i=1;i<=nin(iR,isnr);i++){
+        for(j=1;j<=nmc;j++){
+          u=bumpweights(Mres(,iR,isnr,ind(i),j)(:nab),lb);
+          lb=lb(,sort(u))(,::-1)(,:2);
+          lb=lb(,sort(lb(1,)))(,::-1);
+          for(k=1;k<=2;k++){
+            if((dimsof(lb))(3)>1) LWZ(k,iR,isnr,ind(i),j)=LWM(Mres(,iR,isnr,ind(i),j),lb(1,k),lb(2,k));
+          };
+          LWZ(,iR,isnr,ind(i),j)=LWZ(,iR,isnr,ind(i),j)(sort(LWZ(,iR,isnr,ind(i),j))(::-1));
+          
+        };
+      };
+
+      
+      
+      zer(1,iR,isnr)=median((abs(LWZ(1,iR,isnr,ind,)-mZ(2,ind)(,-:1:10))(*)));
+      zer(2,iR,isnr)=median((abs(LWZ(2,iR,isnr,ind,)-mZ(1,ind)(,-:1:10))(*)));
+      
+    };
+  };
+  
+  LWZ(,,,,)=LWZ(::-1,,,,);
+#if 0
+  ws;
+  pler,LWZ(1,4,4,ind,),LWZ(2,4,4,ind,);
+  pl,mZ(1,ind),mZ(2,ind),width=3;
+#endif
+  
+  
+  nZ=Zrescalem1(LWZ);
+  rmZ=Zrescalem1(mZ);
+  lZ=log10(Zrescalem1(LWZ));
+  lmZ=log10(Zrescalem1(mZ));
+  lzer=zer*0.;
+
+#if 1
+  ws;
+  pler,lZ(1,4,4,ind,),lZ(2,4,4,ind,);
+  pl,lmZ(1,ind),lmZ(2,ind),width=3;
+#endif
+  
+  
+  for(iR=1;iR<=nRs;iR++){
+    for(isnr=1;isnr<=nsnr;isnr++){
+      ind=where((sep(iR,isnr,,avg)<=ss)&(sep3(iR,isnr,)<=ss2));
+      nin(iR,isnr)=numberof(ind);
+      
+      lzer(1,iR,isnr)=median((abs(lZ(1,iR,isnr,ind,)-lmZ(1,ind)(,-:1:10))(*)));
+      lzer(2,iR,isnr)=median((abs(lZ(2,iR,isnr,ind,)-lmZ(2,ind)(,-:1:10))(*)));
+    };
+  };
+  
+  rzer=Zrescalem1(zer); // crappy nonsense
+};
+
+func plzer(sav=){
+  /*DOCUMENT
+    see gplres
+  */
+  
+  ws,2;
+  for(i=1;i<=nRs;i++){
+    if(i!=10) plg,lzer(avg,i,),snrs,type=i,width=3;plg,array(.143-0.006*i,10),2.*span(40.,50.,10),type=i,width=3;plt,"R="+pr1(Rs(i)),110.,0.14-.006*i,tosys=1;}
+  logxy,1,0;
+  range,0.02,0.15;
+  limits,19.,250.;
+  xyleg,"SNR per Angstrom","metallicity error [dex]",cs1=[0.35,0.37],cs2=[0.12,0.58];
+  //pltitle,"metallicity error [dex] vs snr per angstrom";
+  if(sav==1){hcp_file,dir+"zervssnr.ps";
+  hcp;hcp_finish;};
+};
+  
+  
+
