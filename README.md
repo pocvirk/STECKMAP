@@ -1,3 +1,10 @@
+This is the github repo for STECKMAP (STEllar Content and Kinematics via Maximum A Posteriori likelihood, Ocvirk et al. 2006a,b).
+The user guide is in the root of this repo or on arxiv:
+https://arxiv.org/abs/1108.4631
+The user guide is the go to resource to get started with STECKMAP.
+
+historical comments follow (to be deleted)
+
 IMPORTANT:
 A new environment variable must be defined in your .bashrc or .cshrc or whatever...
 STECKMAPROOTDIR 
